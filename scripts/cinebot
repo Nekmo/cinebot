@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+from cinebot.services.cinesur import CinesurService
+
+
+if __name__ == '__main__':
+    films = CinesurService().find_by_name('Miramar').get_films()
+    for film in films:
+        print(film.name, film.get_cover())
+        print(film.get_times())
