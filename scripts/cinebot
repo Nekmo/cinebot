@@ -1,9 +1,21 @@
 #!/usr/bin/env python
+from cinebot.bot.main import CineBot
+from cinebot.bot.multicine import Multicine
 from cinebot.services.cinesur import CinesurService
 
 
+# if __name__ == '__main__':
+#     films = CinesurService().find_by_name('Miramar').get_films()
+#     for film in films:
+#         print(film.name, film.get_cover())
+#         print(film.get_times())
+from cinebot.services.yelmo import YelmoService
+
+# if __name__ == '__main__':
+#     cine = YelmoService().find_by_name('Plaza Mayor')
+#     for film in cine.get_films():
+#         print(film.name)
+#         print(film.get_times())
+
 if __name__ == '__main__':
-    films = CinesurService().find_by_name('Miramar').get_films()
-    for film in films:
-        print(film.name, film.get_cover())
-        print(film.get_times())
+    CineBot('config.json').poll()

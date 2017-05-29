@@ -73,6 +73,7 @@ class CinesurLocation(LocationBase):
             params = {'pagina': i + 1}
         return covers
 
+
 class CinesurService(ServiceBase):
     location_class = CinesurLocation
 

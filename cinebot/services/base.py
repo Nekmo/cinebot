@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 
 from bs4 import BeautifulSoup
+from fuzzywuzzy import fuzz
 from requests import Session
 
 
@@ -11,6 +12,7 @@ FILM_OPTIONS = {
     'UHD': '4K',
     'VOSE': 'SUB',
 }
+MIN_FUZZY_RATIO = 90
 
 def remove_words(text, words):
     pattern = re.compile("(" + '|'.join([re.escape(word) for word in words]) + ")", re.I)
@@ -34,7 +36,7 @@ class FilmTimeBase(object):
         self.booking = booking
 
     def __str__(self):
-        text = '{}'.format(self.time)
+        text = self.time.strftime('%H:%M')
         if self.options:
             text += ' ({})'.format(', '.join(self.options))
         return text
@@ -63,6 +65,11 @@ class FilmBase(object):
     def get_times_data(self):
         raise NotImplementedError
 
+    def is_almost_equal(self, other):
+        name1 = self.name.lower()
+        name2 = other.name.lower()
+        return fuzz.ratio(name1, name2) >= MIN_FUZZY_RATIO
+
     def __str__(self):
         return self.name
 
@@ -79,6 +86,9 @@ class LocationBase(object):
         self.name = name
 
     def get_films(self, date=None):
+        if date is None and datetime.datetime.now().time() < datetime.time(1, 30):
+            # Consideramos que es el mismo día hasta las 01:30 de la mañana
+            date = datetime.date.today() - datetime.timedelta(1)
         date = date or datetime.date.today()
         billboard_data = self.get_films_data(date)
         return [self.film_class(self, date, data['name'], data.get('film_options', [])) for data in billboard_data]
