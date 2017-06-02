@@ -14,9 +14,17 @@ FILM_OPTIONS = {
 }
 MIN_FUZZY_RATIO = 90
 
+
 def remove_words(text, words):
     pattern = re.compile("(" + '|'.join([re.escape(word) for word in words]) + ")", re.I)
     return pattern.sub("", text)
+
+
+def get_date(date):
+    if date is None and datetime.datetime.now().time() < datetime.time(1, 30):
+        # Consideramos que es el mismo día hasta las 01:30 de la mañana
+        date = datetime.date.today() - datetime.timedelta(1)
+    return date or datetime.date.today()
 
 
 class TimesList(list):
@@ -85,13 +93,22 @@ class LocationBase(object):
         self.id = location_id
         self.name = name
 
-    def get_films(self, date=None):
-        if date is None and datetime.datetime.now().time() < datetime.time(1, 30):
-            # Consideramos que es el mismo día hasta las 01:30 de la mañana
-            date = datetime.date.today() - datetime.timedelta(1)
-        date = date or datetime.date.today()
-        billboard_data = self.get_films_data(date)
-        return [self.film_class(self, date, data['name'], data.get('film_options', [])) for data in billboard_data]
+    def films(self, date):
+        date = get_date(date)
+        def create_films():
+            return self.update_films(self.get_films_data(date), date)
+        return self.get_films(date, self.service.db_get_or_create('films', create_films, dict(
+            service=self.service.name, location=self.id, date=date.isoformat()
+        )))
+
+    def get_films(self, date=None, data=None):
+        date = get_date(date)
+        billboard_data = data or self.get_films_data(date)
+        return [self.film_class(self, date, bdata['name'], bdata.get('film_options', [])) for bdata in billboard_data]
+
+    def update_films(self, films, date):
+        # TODO: ¿Hacer mejor método que devuelva el diccionario preparado para la db?
+        return [dict(film, service=self.service.name, location=self.id, date=date.isoformat()) for film in films]
 
     def get_films_data(self, date):
         raise NotImplementedError
@@ -133,10 +150,11 @@ class LocationBase(object):
 
 class ServiceBase(object):
     location_class = LocationBase
+    name = None
 
-    def __init__(self):
+    def __init__(self, db=None):
         self.session = self.get_session()
-        self.locations = self.get_locations()
+        self.db = db
 
     def get_session(self):
         return Session()
@@ -151,8 +169,35 @@ class ServiceBase(object):
         req = session.request(method, url, params, data)
         return req, BeautifulSoup(req.text, 'html.parser')
 
-    def get_locations(self):
-        return [self.location_class(self, data['id'], data['name']) for data in self.get_locations_data()]
+    def db_find(self, collection, query=None):
+        if not self.db:
+            return
+        return self.db[collection].find(query or {})
+
+    def db_save_many(self, collection, datas):
+        if not self.db:
+            return
+        self.db[collection].insert_many(datas)
+
+    def db_get_or_create(self, collection, creator, query=None):
+        data = list(self.db_find(collection, query or {}))
+        if not data:
+            data = creator()
+            self.db_save_many(collection, data)
+        return data
+
+    @property
+    def locations(self):
+        return self.get_locations(self.db_get_or_create('locations',
+                                                        lambda: self.update_locations( self.get_locations_data()),
+                                                        {'service': self.name}))
+
+    def get_locations(self, locations_data=None):
+        return [self.location_class(self, data['id'], data['name'])
+                for data in locations_data or self.get_locations_data()]
+
+    def update_locations(self, locations):
+        return [dict(location, service=self.name) for location in locations]
 
     def get_locations_data(self):
         raise NotImplementedError

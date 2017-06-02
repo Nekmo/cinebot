@@ -50,6 +50,14 @@ class CinesurLocation(LocationBase):
         films = self.join_films_options(films)
         return films
 
+    def update_films(self, films, date):
+        films = super(CinesurLocation, self).update_films(films, date)
+        for film in films:
+            # No se puede guardar en la db. Es un Node Tag Soup
+            for option in film['film_options']:
+                del option['data']
+        return films
+
     def covers_ajax(self, date):
         """La página de las portadas se carga por Ajax, y encima tiene dependencia por
         Cookies. Por ello, creo una nueva sesión vacía y repito la petición. Tras ello,
@@ -76,6 +84,7 @@ class CinesurLocation(LocationBase):
 
 class CinesurService(ServiceBase):
     location_class = CinesurLocation
+    name = 'cinesur'
 
     def get_locations_data(self):
         req, soup = self.soup_req(URL)

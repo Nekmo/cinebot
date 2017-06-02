@@ -55,6 +55,7 @@ class YelmoLocation(LocationBase):
 
 class YelmoService(ServiceBase):
     location_class = YelmoLocation
+    name = 'yelmo'
 
     def get_locations_data(self):
         req = self.session.request('GET', URL)

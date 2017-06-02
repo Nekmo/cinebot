@@ -4,6 +4,7 @@ from cinebot.services.yelmo import YelmoService
 from telegram_bot.plugins.base import PluginBase, button_target
 from telegram_bot.utils.telegram import escape_items
 
+i_memory = 0
 memory_films = set()
 
 
@@ -30,14 +31,13 @@ class DaysPlugin(PluginBase):
 
     def today(self, message):
         films_groups = Multicine([
-            YelmoService().find_by_name('Plaza Mayor'),
-            CinesurService().find_by_name('Miramar'),
+            YelmoService(self.db).find_by_name('Plaza Mayor'),
+            CinesurService(self.db).find_by_name('Miramar'),
         ]).grouped_films()
         msg = message.response('Cartelera de hoy', parse_mode='html')
         inline = msg.inline_keyboard()
         for film_group in films_groups:
             inline.add_button(film_group[0].name, callback=self.film_times, callback_kwargs={'f': id(film_group[0])})
-            films_set.add(film_group[0])
         msg.send()
 
     @button_target

@@ -36,7 +36,7 @@ class Multicine(object):
         """
         cine_films = {}
         for cinema in self.cinemas:
-            cine_films[cinema] = cinema.get_films(date)
+            cine_films[cinema] = cinema.films(date)
         return list(cine_films.values())
 
     def grouped_films(self, date=None):
