@@ -13,14 +13,10 @@ AJAX_URL = '{}now-playing.aspx/GetNowPlaying'.format(URL)
 class YelmoFilm(FilmBase):
 
     def get_cover(self):
-        for film_option in self.film_options:
-            if not film_option['options']:
-                # Es la versión sin modificaciones. Nos quedamos con esta.
-                break
-        else:
-            return None
-        # Nota: la imagen no puede descargarse si no tiene el referer.
-        return film_option.get('cover')
+        return self.film_options['Poster']
+
+    def get_description(self):
+        return self.film_options['Synopsis']
 
     def get_times_data(self):
         all_times = []
@@ -56,6 +52,7 @@ class YelmoLocation(LocationBase):
 class YelmoService(ServiceBase):
     location_class = YelmoLocation
     name = 'yelmo'
+    url = URL
 
     def get_locations_data(self):
         req = self.session.request('GET', URL)

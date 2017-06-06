@@ -45,3 +45,13 @@ class Multicine(object):
         for i, films in enumerate(cine_films):
             grouped_films.extend(group_cine_cines(films, cine_films[i+1:]))
         return grouped_films
+
+    def get_by_film_id(self, date, _id):
+        """Obtener un conjunto por el id de una de sus películas 
+        """
+        grouped_films = self.grouped_films(date)
+        for grouped_film in grouped_films:
+            for film in grouped_film:
+                if film._id == _id:
+                    return grouped_film
+

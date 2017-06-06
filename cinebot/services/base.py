@@ -2,6 +2,7 @@ import datetime
 import re
 from collections import defaultdict
 
+import tempfile
 from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
 from requests import Session
@@ -25,6 +26,16 @@ def get_date(date):
         # Consideramos que es el mismo día hasta las 01:30 de la mañana
         date = datetime.date.today() - datetime.timedelta(1)
     return date or datetime.date.today()
+
+
+def download_file(req, local_filename=None):
+    local_filename = local_filename or tempfile.NamedTemporaryFile().name
+    with open(local_filename, 'wb') as f:
+        for chunk in req.iter_content(chunk_size=1024):
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
+                #f.flush() commented by recommendation from J.F.Sebastian
+    return local_filename
 
 
 class TimesList(list):
@@ -56,11 +67,19 @@ class FilmTimeBase(object):
 class FilmBase(object):
     film_time_class = FilmTimeBase
 
-    def __init__(self, location, date, name, film_options=None):
+    def __init__(self, location, date, name, film_options=None, _id=None):
         self.location = location
         self.date = date
         self.name = name
         self.film_options = film_options
+        self._id = _id  # db id
+
+    def get_image(self):
+        cover = self.get_cover()
+        if cover is None:
+            return
+        req = self.location.service.session.get(cover, stream=True, headers={'referer': self.location.service.url})
+        return download_file(req)
 
     def get_cover(self):
         raise NotImplementedError
@@ -69,6 +88,9 @@ class FilmBase(object):
         times = [self.film_time_class(self, self.date, time['time'], time.get('options'), time.get('booking'))
                 for time in self.get_times_data()]
         return TimesList(times)
+
+    def get_description(self):
+        return ''
 
     def get_times_data(self):
         raise NotImplementedError
@@ -93,18 +115,22 @@ class LocationBase(object):
         self.id = location_id
         self.name = name
 
+    # def films(self, date):
+    #     date = get_date(date)
+    #     def create_films():
+    #         return self.update_films(self.get_films_data(date), date)
+    #     return self.get_films(date, self.service.db_get_or_create('films', create_films, dict(
+    #         service=self.service.name, location=self.id, date=date.isoformat()
+    #     )))
+
     def films(self, date):
-        date = get_date(date)
-        def create_films():
-            return self.update_films(self.get_films_data(date), date)
-        return self.get_films(date, self.service.db_get_or_create('films', create_films, dict(
-            service=self.service.name, location=self.id, date=date.isoformat()
-        )))
+        return self.get_films(date)
 
     def get_films(self, date=None, data=None):
         date = get_date(date)
         billboard_data = data or self.get_films_data(date)
-        return [self.film_class(self, date, bdata['name'], bdata.get('film_options', [])) for bdata in billboard_data]
+        return [self.film_class(self, date, bdata['name'], bdata.get('film_options', []), bdata.get('_id'))
+                for bdata in billboard_data]
 
     def update_films(self, films, date):
         # TODO: ¿Hacer mejor método que devuelva el diccionario preparado para la db?
@@ -151,6 +177,7 @@ class LocationBase(object):
 class ServiceBase(object):
     location_class = LocationBase
     name = None
+    url = None
 
     def __init__(self, db=None):
         self.session = self.get_session()

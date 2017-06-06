@@ -21,6 +21,11 @@ class CinesurFilm(FilmBase):
         # Nota: la imagen no puede descargarse si no tiene el referer.
         return film_option.get('cover')
 
+    def get_description(self):
+        url = self.film_options[0]['sheet_url']
+        req, soup = self.location.service.soup_req(url)
+        return soup.select('.sinopsis')[0].string
+
     def get_times_data(self):
         all_times = []
         for film_option in self.film_options:
@@ -74,7 +79,8 @@ class CinesurLocation(LocationBase):
         for i in range(1, 10):  # 10: máximo de páginas para evitar bucle
             req, soup = self.service.soup_req(AJAX_COVERS, params=params, session=session)
             page_covers = [a for a in soup.select('.peli a') if not a.attrs.get('class')]
-            covers.update({URL + a.attrs['href']: URL + a.find('img').attrs['src'] for a in page_covers})
+            covers.update({URL + a.attrs['href']: URL + a.find('img').attrs['src'].replace('prev_', '')
+                           for a in page_covers})
             if not soup.select('a.siguiente')[0].attrs.get('href'):
                 # Última página
                 break
@@ -85,6 +91,7 @@ class CinesurLocation(LocationBase):
 class CinesurService(ServiceBase):
     location_class = CinesurLocation
     name = 'cinesur'
+    url = URL
 
     def get_locations_data(self):
         req, soup = self.soup_req(URL)
