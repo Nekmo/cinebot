@@ -1,8 +1,14 @@
 import time
 
+import os
+
+import traceback
+
+import sys
 from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 from cinebot.bot.multicine import Multicine
+from cinebot.scores import filmaffinity, imdb
 from cinebot.services.cinesur import CinesurService
 from cinebot.services.yelmo import YelmoService
 from telegram_bot.plugins.base import PluginBase, button_target
@@ -94,6 +100,22 @@ class DaysPlugin(PluginBase):
             inline.add_button(film_group[0].name, callback=self.film_times,
                               callback_kwargs={'i': to_callback_int(i)})
 
+    def get_scores(self, film_name):
+        data = {}
+        try:
+            data = filmaffinity.search(film_name) or {}
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+        scores = [('Filmaffinity', data.get('score'))]
+        if 'original_title' in data:
+            ib = {}
+            try:
+                ib = imdb.search(data['original_title']) or {}
+            except Exception:
+                pass
+            scores += [('IMDb', ib.get('score'))]
+        return '\n'.join(['{}: {}'.format(key, value) for key, value in scores if value])
+
     @button_target
     def film_times(self, query, i):
         try:
@@ -103,8 +125,9 @@ class DaysPlugin(PluginBase):
             return
         film_group = films_group_data['film_group']
         film = film_group[0]
-        text = '<b>{name}</b>\nSesión del día: {date}\n{description}\n\n'.format(**escape_items(
-            name=film.name,  date=str(film.date), description=film.get_description()))
+        text = '<b>{name}</b>\nSesión del día: {date}\n{scores}\n{description}\n\n'.format(**escape_items(
+            name=film.name, date=str(film.date), scores=self.get_scores(film.name),
+            description=film.get_description()))
         for film in film_group:
             text += '<b>{f}</b>\n{t}\n'.format(**escape_items(f=film.location.name,
                                                               t=' '.join(map(str, film.get_times()))))
@@ -114,6 +137,7 @@ class DaysPlugin(PluginBase):
         image = film.get_image()
         if image is not None:
             msg = self.bot.send_photo(query.message.chat.id, open(image, 'rb'))
+            os.remove(image)
             # Establecer oculto id del poster
             text += set_hidden_data('message_id', msg.message_id)
         self.bot.send_message(query.message.chat.id, text, reply_markup=markup, parse_mode='html')
