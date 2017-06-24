@@ -5,6 +5,8 @@ from collections import defaultdict
 import tempfile
 
 import os
+from urllib.parse import quote
+
 from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
 from requests import Session
@@ -85,7 +87,7 @@ class FilmBase(object):
         self._id = _id  # db id
 
     def get_image(self):
-        name = '{}/cinebot/{}/{}'.format(TEMP_DIR, self.location.service.name, self.name)
+        name = '{}/cinebot/{}/{}'.format(TEMP_DIR, self.location.service.name, quote(self.name, ' '))
         if os.path.lexists(name):
             return name
         cover = self.get_cover()

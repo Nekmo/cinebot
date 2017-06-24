@@ -106,7 +106,7 @@ class DaysPlugin(PluginBase):
         msg.send()
 
     def get_collage(self, film_groups):
-        columns = math.ceil(len(film_groups) ** (1/2))
+        columns = math.ceil(len(film_groups) ** (1 / 2))
         ims = Image.new('RGB', (DEFAULT_WIDTH * columns, DEFAULT_HEIGHT * columns), '#ffffff')
         for i, film_group in enumerate(film_groups):
             film = film_group[0]
