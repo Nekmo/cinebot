@@ -1,3 +1,4 @@
+import tempfile
 import time
 
 import os
@@ -5,6 +6,10 @@ import os
 import traceback
 
 import sys
+
+import math
+
+from PIL import Image
 from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 from cinebot.bot.multicine import Multicine
@@ -13,6 +18,7 @@ from cinebot.services.cinesur import CinesurService
 from cinebot.services.yelmo import YelmoService
 from telegram_bot.plugins.base import PluginBase, button_target
 from telegram_bot.types.keyboard import InlineKeyboard
+from telegram_bot.types.message import Message
 from telegram_bot.utils.telegram import escape_items, username_id_code
 from expiringdict import ExpiringDict
 
@@ -22,6 +28,8 @@ HIDDEN_URL = 'http://example.com'
 i_memory = 0
 memory_film_groups = ExpiringDict(max_len=300, max_age_seconds=60 * 60 * 24)
 uptime_time = time.time()
+DEFAULT_WIDTH = 139
+DEFAULT_HEIGHT = 203
 
 
 class SessionExpired(Exception):
@@ -84,19 +92,44 @@ class DaysPlugin(PluginBase):
     #         )))
     #     message.response('\n'.join(body), parse_mode='html').send()
 
-    def today(self, message):
-        films_groups = Multicine([
-            YelmoService(self.db).find_by_name('Plaza Mayor'),
-            CinesurService(self.db).find_by_name('Miramar'),
-        ]).grouped_films()
-        msg = message.response('Cartelera de hoy', parse_mode='html')
+    def today(self, message, films_groups=None):
+        if films_groups is None:
+            films_groups = Multicine([
+                YelmoService(self.db).find_by_name('Plaza Mayor'),
+                CinesurService(self.db).find_by_name('Miramar'),
+            ]).grouped_films()
+        img_msg = self.send_collage(films_groups, message)
+        msg = message.response('Cartelera de hoy' + set_hidden_data('message_id', img_msg.message_id),
+                               parse_mode='html')
         inline = msg.inline_keyboard()
         self.billboard_markup(films_groups, inline)
         msg.send()
 
-    def billboard_markup(self, films_groups, inline):
+    def get_collage(self, film_groups):
+        columns = math.ceil(len(film_groups) ** (1/2))
+        ims = Image.new('RGB', (DEFAULT_WIDTH * columns, DEFAULT_HEIGHT * columns), '#ffffff')
+        for i, film_group in enumerate(film_groups):
+            film = film_group[0]
+            image = film.get_image()
+            if image is None:
+                continue
+            im = Image.open(image)
+            im.thumbnail((DEFAULT_WIDTH, DEFAULT_HEIGHT))
+            ims.paste(im, ((i % columns) * DEFAULT_WIDTH, (i // columns) * DEFAULT_HEIGHT))
+        name = tempfile.NamedTemporaryFile().name
+        ims.save(name, "JPEG")
+        return name
+
+    def send_collage(self, film_groups, message):
+        # TODO: debería en el futuro intentar cachearlo X tiempo
+        image = self.get_collage(film_groups)
+        msg = self.bot.send_photo(message.chat.id, open(image, 'rb'))
+        os.remove(image)
+        return msg
+
+    def billboard_markup(self, films_groups, inline, **extra_data):
         for film_group in films_groups:
-            i = save_film_to_memory({'film_group': film_group, 'film_groups': films_groups})
+            i = save_film_to_memory(dict({'film_group': film_group, 'film_groups': films_groups}, **extra_data))
             inline.add_button(film_group[0].name, callback=self.film_times,
                               callback_kwargs={'i': to_callback_int(i)})
 
@@ -133,11 +166,16 @@ class DaysPlugin(PluginBase):
                                                               t=' '.join(map(str, film.get_times()))))
         markup = InlineKeyboard(self.main)
         markup.add_button('Volver atrás', callback=self.back_billboard, callback_kwargs={'i': i})
+        # Borrar mensaje con los botones
         self.bot.delete_message(query.message.chat.id, query.message.message_id)
+        # Borrar el poster con el collage
+        message_id = get_hidden_data(query.message, 'message_id')  # Id del mensaje del poster
+        if message_id:
+            self.bot.delete_message(query.message.chat.id, int(message_id))  # Borrar poster
+        # Enviar poster de la película solicitada
         image = film.get_image()
         if image is not None:
             msg = self.bot.send_photo(query.message.chat.id, open(image, 'rb'))
-            os.remove(image)
             # Establecer oculto id del poster
             text += set_hidden_data('message_id', msg.message_id)
         self.bot.send_message(query.message.chat.id, text, reply_markup=markup, parse_mode='html')
@@ -145,16 +183,13 @@ class DaysPlugin(PluginBase):
     @button_target
     def back_billboard(self, query, i):
         try:
-            films_group_data = memory_film_groups[from_callback_int(i)]
+            film_groups = memory_film_groups[from_callback_int(i)]['film_groups']
         except (KeyError, SessionExpired):
             self.bot.edit_message_text('¡Sesión caducada! Repita el comando, por favor.',
                                        query.message.chat.id, message_id=query.message.message_id)
             return
-        markup = InlineKeyboard(self.main)
-        self.billboard_markup(films_group_data['film_groups'], markup)
         message_id = get_hidden_data(query.message, 'message_id')  # Id del mensaje del poster
         if message_id:
             self.bot.delete_message(query.message.chat.id, int(message_id))  # Borrar poster
-        self.bot.edit_message_text('Cartelera de hoy', query.message.chat.id, message_id=query.message.message_id,
-                                   parse_mode='html', reply_markup=markup)
-
+        self.bot.delete_message(query.message.chat.id, query.message.message_id)
+        self.today(Message.from_telebot_message(self.main, query.message), film_groups)

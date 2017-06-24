@@ -81,7 +81,7 @@ class CinesurLocation(LocationBase):
             page_covers = [a for a in soup.select('.peli a') if not a.attrs.get('class')]
             covers.update({URL + a.attrs['href']: URL + a.find('img').attrs['src'].replace('prev_', '')
                            for a in page_covers})
-            if not soup.select('a.siguiente')[0].attrs.get('href'):
+            if not soup.select('a.siguiente') or not soup.select('a.siguiente')[0].attrs.get('href'):
                 # Última página
                 break
             params = {'pagina': i + 1}

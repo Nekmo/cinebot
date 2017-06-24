@@ -3,6 +3,8 @@ import re
 from collections import defaultdict
 
 import tempfile
+
+import os
 from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
 from requests import Session
@@ -14,6 +16,7 @@ FILM_OPTIONS = {
     'VOSE': 'SUB',
 }
 MIN_FUZZY_RATIO = 90
+TEMP_DIR = tempfile.tempdir or '/tmp'
 
 
 def remove_words(text, words):
@@ -28,8 +31,15 @@ def get_date(date):
     return date or datetime.date.today()
 
 
+def file_makedirs(path):
+    """Crear directorios intermedios hasta el archivo, pero sin crear el archivo.
+    """
+    os.makedirs(os.path.split(path)[0], exist_ok=True)
+
+
 def download_file(req, local_filename=None):
     local_filename = local_filename or tempfile.NamedTemporaryFile().name
+    file_makedirs(local_filename)
     with open(local_filename, 'wb') as f:
         for chunk in req.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
@@ -75,11 +85,14 @@ class FilmBase(object):
         self._id = _id  # db id
 
     def get_image(self):
+        name = '{}/cinebot/{}/{}'.format(TEMP_DIR, self.location.service.name, self.name)
+        if os.path.lexists(name):
+            return name
         cover = self.get_cover()
         if cover is None:
             return
         req = self.location.service.session.get(cover, stream=True, headers={'referer': self.location.service.url})
-        return download_file(req)
+        return download_file(req, name)
 
     def get_cover(self):
         raise NotImplementedError
