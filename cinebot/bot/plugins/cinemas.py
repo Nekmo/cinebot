@@ -64,24 +64,26 @@ class CinemasPlugin(PluginBase):
         msg = message.response('Ahora tienes la posibilidad de añadir otro cine si lo deseas.')
         inline = msg.inline_keyboard()
         inline.add_button('Añadir otro cine', callback=self.add_cinema_button)
+        inline.add_button('Ver mis cines', callback=self.cinemas_button)
         msg.send()
 
     def delete_cinema(self, message):
         msg = message.response('Elije los cines que desees borrar de tus favoritos.')
-        inline = msg.inline_keyboard()
+        inline = msg.reply_keyboard(self.delete_cinema_selected)
         for user_cinema in self.user_cinemas.find({'user_id': message.chat.id}):
             cinema = self.db['locations'].find_one({'_id': user_cinema['cinema_id']})
-            inline.add_button(cinema['name'], callback=self.delete_cinema_selected)
+            inline.add_button(cinema['name'])
         msg.send()
 
     def delete_cinema_selected(self, message):
-        query = self.cinema_query(message, self.add_cinema)
+        query = self.cinema_query(message, self.delete_cinema)
         markup = ReplyKeyboardRemove(selective=False)
-        self.user_cinemas.insert_one(query)
+        self.user_cinemas.delete_many(query)
         message.response('Eliminado el cine seleccionado de tus favoritos.', reply_markup=markup).send()
         msg = message.response('Ahora tienes la posibilidad de eliminar otro cine si lo deseas.')
         inline = msg.inline_keyboard()
         inline.add_button('Borrar otro cine', callback=self.delete_cinema_button)
+        inline.add_button('Ver mis cines', callback=self.cinemas_button)
         msg.send()
 
     @button_target
@@ -93,6 +95,11 @@ class CinemasPlugin(PluginBase):
     def delete_cinema_button(self, query):
         self.bot.delete_message(query.message.chat.id, query.message.message_id)
         self.delete_cinema(Message.from_telebot_message(self.main, query.message))
+
+    @button_target
+    def cinemas_button(self, query):
+        self.bot.delete_message(query.message.chat.id, query.message.message_id)
+        self.cinemas(Message.from_telebot_message(self.main, query.message))
 
     def cinemas(self, message):
         my_cinemas = self.user_cinemas.find({'user_id': message.chat.id})
@@ -106,6 +113,5 @@ class CinemasPlugin(PluginBase):
         ))
         inline = msg.inline_keyboard()
         inline.add_button('Añadir cines', callback=self.add_cinema_button)
-        # TODO: este botón no está funcionando. Tal vez fallo bibilioteca. Sólo mete primero?
         inline.add_button('Borrar cines', callback=self.delete_cinema_button)
         msg.send()

@@ -85,6 +85,7 @@ class DaysPlugin(PluginBase):
         self.main.set_message_handler(self.today, commands=['today'])
         self.main.set_message_handler(self.tomorrow, commands=['tomorrow'])
         self.main.set_message_handler(self.next2days, commands=['next2days'])
+        self.main.set_message_handler(self.next3days, commands=['next3days'])
 
     # def today(self, message):
     #     from cinebot.services.cinesur import CinesurService
