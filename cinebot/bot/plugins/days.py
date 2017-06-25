@@ -1,3 +1,4 @@
+import datetime
 import tempfile
 import time
 
@@ -8,6 +9,7 @@ import traceback
 import sys
 
 import math
+from typing import Union
 
 from PIL import Image
 from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
@@ -81,6 +83,8 @@ def get_hidden_data(message, mkey):
 class DaysPlugin(PluginBase):
     def set_handlers(self):
         self.main.set_message_handler(self.today, commands=['today'])
+        self.main.set_message_handler(self.tomorrow, commands=['tomorrow'])
+        self.main.set_message_handler(self.next2days, commands=['next2days'])
 
     # def today(self, message):
     #     from cinebot.services.cinesur import CinesurService
@@ -93,21 +97,42 @@ class DaysPlugin(PluginBase):
     #     message.response('\n'.join(body), parse_mode='html').send()
 
     def today(self, message, films_groups=None):
+        self._billboard_day(message, None, films_groups)
+
+    def _next_days(self, message, days, films_groups=None):
+        day = datetime.date.today() + datetime.timedelta(days=days)
+        self._billboard_day(message, day, films_groups)
+
+    def tomorrow(self, message, films_groups=None):
+        self._next_days(message, 1, films_groups)
+
+    def next2days(self, message, films_groups=None):
+        self._next_days(message, 2, films_groups)
+
+    def next3days(self, message, films_groups=None):
+        self._next_days(message, 3, films_groups)
+
+    def _billboard_day(self, message, day: Union[datetime.date, None], films_groups=None):
+        day = day or datetime.date.today()
+        cinemas = [
+            YelmoService(self.db).find_by_name('Plaza Mayor'),
+            CinesurService(self.db).find_by_name('Miramar'),
+        ]
         if films_groups is None:
-            films_groups = Multicine([
-                YelmoService(self.db).find_by_name('Plaza Mayor'),
-                CinesurService(self.db).find_by_name('Miramar'),
-            ]).grouped_films()
+            films_groups = Multicine(cinemas).grouped_films(day)
         img_msg = self.send_collage(films_groups, message)
-        msg = message.response('Cartelera de hoy' + set_hidden_data('message_id', img_msg.message_id),
-                               parse_mode='html')
+        msg = message.response('Cartelera de hoy, día {}, en los cines {} {}'.format(
+            day.strftime('%x'), ', '.join([cinema.name for cinema in cinemas]),
+            set_hidden_data('message_id', img_msg.message_id)
+        ), parse_mode='html')
         inline = msg.inline_keyboard()
         self.billboard_markup(films_groups, inline)
         msg.send()
 
     def get_collage(self, film_groups):
         columns = math.ceil(len(film_groups) ** (1 / 2))
-        ims = Image.new('RGB', (DEFAULT_WIDTH * columns, DEFAULT_HEIGHT * columns), '#ffffff')
+        rows = round(len(film_groups) ** (1 / 2) + 0.00001)  # No redondea 0.5 a 1. Por eso añado 0.00001
+        ims = Image.new('RGB', (DEFAULT_WIDTH * columns, DEFAULT_HEIGHT * rows), '#ffffff')
         for i, film_group in enumerate(film_groups):
             film = film_group[0]
             image = film.get_image()
