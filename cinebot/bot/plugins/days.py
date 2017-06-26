@@ -12,9 +12,10 @@ import math
 from typing import Union
 
 from PIL import Image
-from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 from cinebot.bot.multicine import Multicine
+from cinebot.bot.plugins.cinemas import search_cinema
 from cinebot.query import get_service
 from cinebot.scores import filmaffinity, imdb
 from cinebot.services.cinesur import CinesurService
@@ -33,7 +34,10 @@ memory_film_groups = ExpiringDict(max_len=300, max_age_seconds=60 * 60 * 24)
 uptime_time = time.time()
 DEFAULT_WIDTH = 139
 DEFAULT_HEIGHT = 203
-
+DAYS = [
+    ('today', 'Hoy'), ('tomorrow', 'Mañana'), ('next2days', 'Pasado mañana'),
+    ('next3days', 'Dentro de 3 días')
+]
 
 class SessionExpired(Exception):
     pass
@@ -81,7 +85,9 @@ def get_hidden_data(message, mkey):
             return value
 
 
-class DaysPlugin(PluginBase):
+class BillboardBase(PluginBase):
+    db = None
+
     @property
     def user_cinemas(self):
         return self.db['user_cinemas']
@@ -89,6 +95,9 @@ class DaysPlugin(PluginBase):
     @property
     def locations(self):
         return self.db['locations']
+
+
+class DaysPlugin(BillboardBase):
 
     def set_handlers(self):
         self.main.set_message_handler(self.today, commands=['today'])
@@ -240,3 +249,56 @@ class DaysPlugin(PluginBase):
             self.bot.delete_message(query.message.chat.id, int(message_id))  # Borrar poster
         self.bot.delete_message(query.message.chat.id, query.message.message_id)
         self.today(Message.from_telebot_message(self.main, query.message), film_groups)
+
+
+class SearchPlugin(BillboardBase):
+    def set_handlers(self):
+        self.main.set_message_handler(self.search, commands=['search'])
+
+    @property
+    def locations(self):
+        return self.db['locations']
+
+    def search(self, message):
+        self.search_by_name(message)
+
+    def search_by_name(self, message):
+        msg = message.response('Escribe el nombre del cine del que obtener su cartelera')
+        msg.force_reply(self.search_results)
+        msg.send()
+
+    def search_results(self, message):
+        msg = message.response('Estos son los resultados que se han encontrado')
+        markup = msg.reply_keyboard(self.result_selected)
+        for result in search_cinema(self.locations, message.text):
+            markup.add_button(result[0])
+        msg.send()
+
+    def result_selected(self, message):
+        cinema = self.locations.find_one({'name': message.text})
+        if not cinema:
+            message.response('No se ha encontrado ningún resultado. Vuelva a intentarlo.').send()
+            self.search_results(message)
+            return
+        self.cinema_billboard(message, cinema)
+
+    def cinema_billboard(self, message, cinema):
+        markup = ReplyKeyboardRemove(selective=False)
+        films = get_service(cinema['service'])(self.db).find_by_name(cinema['name']).get_films()
+        film_lines = []
+        for film in films:
+            film_lines.append('<b>{name}</b>\n{times}'.format(**escape_items(
+                name=film.name, times=', '.join([str(time) for time in film.get_times()])
+            )))
+        message.response('\n'.join(film_lines), parse_mode='html', reply_markup=markup).send()
+        body = 'Estos horarios son del día {} para el cine {}. Cambia de día usando los botones.'
+        # TODO: incluir como info oculta el cine y los mensajes a eliminar
+        msg = message.response(body, reply_markup=markup)
+        inline = msg.inline_keyboard(2)
+        for day_key, name in DAYS:
+            inline.add_button(name, callback=self.cinema_billboard_day, callback_kwargs={'d': day_key})
+        msg.send()
+
+    @button_target
+    def cinema_billboard_day(self, query, d):
+        pass

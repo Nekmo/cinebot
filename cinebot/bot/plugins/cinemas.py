@@ -6,6 +6,11 @@ from cinebot.query import SERVICES
 from telegram_bot.plugins.base import PluginBase, button_target
 
 
+def search_cinema(locations, query_text, limit=4):
+    all_cinemas = locations.find({})
+    return process.extract(query_text, [cinema['name'] for cinema in all_cinemas], limit=limit)
+
+
 class CinemasPlugin(PluginBase):
 
     @property
@@ -35,17 +40,15 @@ class CinemasPlugin(PluginBase):
 
     def search(self, message):
         msg = message.response('Éstas son las opciones disponibles. Elija el que crea correcta.')
-        all_cinemas = self.db['locations'].find({})
-        results = process.extract(message.text, [cinema['name'] for cinema in all_cinemas], limit=4)
         markup = msg.reply_keyboard(self.add_cinema_selected)
-        for result in results:
+        for result in search_cinema(self.locations, message.text):
             markup.add_button(result[0])
         msg.send()
 
     def cinema_query(self, message, on_error):
         cinema = self.db['locations'].find_one({'name': message.text})
         if not cinema:
-            message.response('No se ha encontrado ningún resultado. Vuelva a intentarlo.')
+            message.response('No se ha encontrado ningún resultado. Vuelva a intentarlo.').send()
             on_error(message)
             return
         return {
