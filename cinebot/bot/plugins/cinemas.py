@@ -14,10 +14,11 @@ class CinemasPlugin(PluginBase):
 
     @property
     def locations(self):
-        return self.db['user_cinemas']
+        return self.db['locations']
 
     def set_handlers(self):
         self.main.set_message_handler(self.cinemas, commands=['cinemas'])
+        self.main.set_message_handler(self.cinemas, commands=['start'])
 
     def options(self, message):
         msg = message.response('Seleccione la opción deseada')

@@ -15,6 +15,7 @@ from PIL import Image
 from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 from cinebot.bot.multicine import Multicine
+from cinebot.query import get_service
 from cinebot.scores import filmaffinity, imdb
 from cinebot.services.cinesur import CinesurService
 from cinebot.services.yelmo import YelmoService
@@ -81,6 +82,14 @@ def get_hidden_data(message, mkey):
 
 
 class DaysPlugin(PluginBase):
+    @property
+    def user_cinemas(self):
+        return self.db['user_cinemas']
+
+    @property
+    def locations(self):
+        return self.db['locations']
+
     def set_handlers(self):
         self.main.set_message_handler(self.today, commands=['today'])
         self.main.set_message_handler(self.tomorrow, commands=['tomorrow'])
@@ -113,17 +122,29 @@ class DaysPlugin(PluginBase):
     def next3days(self, message, films_groups=None):
         self._next_days(message, 3, films_groups)
 
+    def get_user_cinemas(self, chat_id):
+        return [
+            get_service(cinema['service'])(self.db).find_by_name(cinema['name'])
+            for cinema in [self.locations.find_one({'_id': user_cinema['cinema_id']})
+                           for user_cinema in self.user_cinemas.find({'user_id': chat_id})]
+            if cinema
+        ]
+
     def _billboard_day(self, message, day: Union[datetime.date, None], films_groups=None):
         day = day or datetime.date.today()
-        cinemas = [
-            YelmoService(self.db).find_by_name('Plaza Mayor'),
-            CinesurService(self.db).find_by_name('Miramar'),
-        ]
+        human_day = {0: 'hoy', 1: 'mañana', 2: 'pasado mañana', 3: 'dentro de 3 días'}.get(
+            (day - datetime.date.today()).days, '?'
+        )
+        cinemas = self.get_user_cinemas(message.chat.id)
         if films_groups is None:
             films_groups = Multicine(cinemas).grouped_films(day)
+        if not cinemas:
+            return message.response('No tienes cines añadidos. Añada cines con /cinemas').send()
+        if not films_groups:
+            return message.response('No hay cartelera. Comprueba los cines que tiene en favoritos con /cinemas').send()
         img_msg = self.send_collage(films_groups, message)
-        msg = message.response('Cartelera de hoy, día {}, en los cines {} {}'.format(
-            day.strftime('%x'), ', '.join([cinema.name for cinema in cinemas]),
+        msg = message.response('Cartelera de {}, día {}, en los cines {} {}'.format(
+            human_day, day.strftime('%x'), ', '.join([cinema.name for cinema in cinemas]),
             set_hidden_data('message_id', img_msg.message_id)
         ), parse_mode='html')
         inline = msg.inline_keyboard()
