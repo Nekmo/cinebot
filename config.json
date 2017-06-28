@@ -1,6 +1,0 @@
-{
-  "api_token": "377432052:AAFbFLYU7dVwiasH_UHou48TJUE9Db5CmXE",
-  "bot_alias": "horascinebot",
-  "db_url": "mongodb://localhost:27019",
-  "db_name": "cinebot"
-}
