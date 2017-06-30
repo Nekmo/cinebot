@@ -12,12 +12,11 @@ AJAX_COVERS = '{}cargador_ajax/peliculas2.php'.format(URL)
 class CinesurFilm(FilmBase):
 
     def get_cover(self):
+        film_option = {}
         for film_option in self.film_options:
             if not film_option['options']:
                 # Es la versión sin modificaciones. Nos quedamos con esta.
                 break
-        else:
-            return None
         # Nota: la imagen no puede descargarse si no tiene el referer.
         return film_option.get('cover')
 
