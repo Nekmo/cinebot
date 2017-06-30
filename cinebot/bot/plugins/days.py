@@ -93,6 +93,10 @@ class BillboardBase(PluginBase):
         return self.db['user_cinemas']
 
     @property
+    def search_cinemas(self):
+        return self.db['search_cinemas']
+
+    @property
     def locations(self):
         return self.db['locations']
 
@@ -260,7 +264,11 @@ class SearchPlugin(BillboardBase):
         return self.db['locations']
 
     def search(self, message):
-        self.search_by_name(message)
+        cinemas = self.search_cinemas.find({'user_id': message.chat.id})
+        if not cinemas.count():
+            self.search_by_name(message)
+        msg = message.response('Antes de buscar, aquí tienes los últimos cines que consultaste.')
+        # TODO:
 
     def search_by_name(self, message):
         msg = message.response('Escribe el nombre del cine del que obtener su cartelera')
@@ -280,6 +288,10 @@ class SearchPlugin(BillboardBase):
             message.response('No se ha encontrado ningún resultado. Vuelva a intentarlo.').send()
             self.search_results(message)
             return
+        # TODO: incluir fecha última consulta
+        q = {'user_id': message.chat.id, 'cinema_id': cinema['_id']}
+        if not self.search_cinemas.find(q).count():
+            self.search_cinemas.insert_one(q)
         self.cinema_billboard(message, cinema)
 
     def cinema_billboard(self, message, cinema):
@@ -292,6 +304,7 @@ class SearchPlugin(BillboardBase):
             )))
         message.response('\n'.join(film_lines), parse_mode='html', reply_markup=markup).send()
         body = 'Estos horarios son del día {} para el cine {}. Cambia de día usando los botones.'
+        body += set_hidden_data('cinema_name', cinema['name'])
         # TODO: incluir como info oculta el cine y los mensajes a eliminar
         msg = message.response(body, reply_markup=markup)
         inline = msg.inline_keyboard(2)
