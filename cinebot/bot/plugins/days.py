@@ -85,6 +85,10 @@ def get_hidden_data(message, mkey):
             return value
 
 
+def isotoday():
+    return datetime.datetime.today().isoformat()
+
+
 class BillboardBase(PluginBase):
     db = None
 
@@ -95,6 +99,9 @@ class BillboardBase(PluginBase):
     @property
     def search_cinemas(self):
         return self.db['search_cinemas']
+
+    def user_search_cinemas(self, user_id):
+        return self.search_cinemas.find({'user_id': user_id}).sort('dt', -1)
 
     @property
     def locations(self):
@@ -264,7 +271,7 @@ class SearchPlugin(BillboardBase):
         return self.db['locations']
 
     def search(self, message):
-        user_cinemas = self.search_cinemas.find({'user_id': message.chat.id})
+        user_cinemas = self.user_search_cinemas(message.chat.id)
         if not user_cinemas.count():
             self.search_by_name(message)
         msg = message.response('Antes de buscar, aquí tienes los últimos cines que consultaste.')
@@ -278,7 +285,10 @@ class SearchPlugin(BillboardBase):
 
     @button_target
     def cinema_selected(self, query, c):
-        pass
+        message = Message.from_telebot_message(self.main, query.message)
+        user_cinema = list(self.user_search_cinemas(message.chat.id))[c]
+        cinema = self.locations.find_one({'_id': user_cinema['cinema_id']})
+        self.result_selected(message, cinema)
 
     def search_by_name(self, message):
         msg = message.response('Escribe el nombre del cine del que obtener su cartelera')
@@ -296,16 +306,17 @@ class SearchPlugin(BillboardBase):
             markup.add_button(result[0])
         msg.send()
 
-    def result_selected(self, message):
-        cinema = self.locations.find_one({'name': message.text})
+    def result_selected(self, message, cinema=None):
+        if cinema is None:
+            cinema = self.locations.find_one({'name': message.text})
         if not cinema:
             message.response('No se ha encontrado ningún resultado. Vuelva a intentarlo.').send()
             self.search_results(message)
             return
-        # TODO: incluir fecha última consulta
         q = {'user_id': message.chat.id, 'cinema_id': cinema['_id']}
-        if not self.search_cinemas.find(q).count():
-            self.search_cinemas.insert_one(q)
+        self.search_cinemas.delete_many(q)  # Borro los que ya existiesen. Guardo con la nueva fecha.
+        q['dt'] = isotoday()
+        self.search_cinemas.insert_one(q)
         self.cinema_billboard(message, cinema)
 
     def cinema_billboard(self, message, cinema):
