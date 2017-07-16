@@ -1,4 +1,5 @@
 import datetime
+import locale
 import tempfile
 import time
 
@@ -46,6 +47,9 @@ DAYS_DELTA = {
     'next2days': 2,
     'next3days': 3,
 }
+
+
+locale.setlocale(locale.LC_TIME, '.'.join(locale.getdefaultlocale()))
 
 
 class SessionExpired(Exception):
@@ -297,6 +301,7 @@ class SearchPlugin(BillboardBase):
     @button_target
     def cinema_selected(self, query, c):
         message = Message.from_telebot_message(self.main, query.message)
+        self.bot.delete_message(message.chat.id, message.message_id)
         user_cinema = list(self.user_search_cinemas(message.chat.id))[c]
         cinema = self.locations.find_one({'_id': user_cinema['cinema_id']})
         self.result_selected(message, cinema)
@@ -308,7 +313,9 @@ class SearchPlugin(BillboardBase):
 
     @button_target
     def search_by_name_selected(self, query):
-        self.search_by_name(Message.from_telebot_message(self.main, query.message))
+        message = Message.from_telebot_message(self.main, query.message)
+        self.bot.delete_message(message.chat.id, message.message_id)
+        self.search_by_name(message)
 
     def search_results(self, message):
         msg = message.response('Estos son los resultados que se han encontrado')
