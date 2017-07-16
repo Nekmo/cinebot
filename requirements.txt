@@ -1,0 +1,6 @@
+-e git+https://github.com/mailgun/expiringdict.git@2fa0e533c2737e89ccaf66e72b497f5a654d2607#egg=expiringdict
+fuzzywuzzy
+Pillow
+pymongo
+requests
+python-Levenshtein
