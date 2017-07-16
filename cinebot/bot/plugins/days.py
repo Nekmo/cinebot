@@ -12,12 +12,14 @@ import math
 from typing import Union
 
 from PIL import Image
+from bson import ObjectId
 from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 from cinebot.bot.multicine import Multicine
 from cinebot.bot.plugins.cinemas import search_cinema
 from cinebot.query import get_service
 from cinebot.scores import filmaffinity, imdb
+from cinebot.services.base import get_date
 from cinebot.services.cinesur import CinesurService
 from cinebot.services.yelmo import YelmoService
 from telegram_bot.plugins.base import PluginBase, button_target
@@ -38,6 +40,13 @@ DAYS = [
     ('today', 'Hoy'), ('tomorrow', 'Mañana'), ('next2days', 'Pasado mañana'),
     ('next3days', 'Dentro de 3 días')
 ]
+DAYS_DELTA = {
+    'today': None,
+    'tomorrow': 1,
+    'next2days': 2,
+    'next3days': 3,
+}
+
 
 class SessionExpired(Exception):
     pass
@@ -319,19 +328,24 @@ class SearchPlugin(BillboardBase):
         self.search_cinemas.insert_one(q)
         self.cinema_billboard(message, cinema)
 
-    def cinema_billboard(self, message, cinema):
+    def cinema_billboard(self, message, cinema, day='today'):
+        day = DAYS_DELTA[day]
+        date = get_date(datetime.date.today() + datetime.timedelta(days=day) if isinstance(day, int) else None)
         markup = ReplyKeyboardRemove(selective=False)
-        films = get_service(cinema['service'])(self.db).find_by_name(cinema['name']).get_films()
+        films = get_service(cinema['service'])(self.db).find_by_name(cinema['name']).get_films(date)
         film_lines = []
         for film in films:
             film_lines.append('<b>{name}</b>\n{times}'.format(**escape_items(
                 name=film.name, times=', '.join([str(time) for time in film.get_times()])
             )))
-        message.response('\n'.join(film_lines), parse_mode='html', reply_markup=markup).send()
-        body = 'Estos horarios son del día {} para el cine {}. Cambia de día usando los botones.'
-        body += set_hidden_data('cinema_name', cinema['name'])
+        resp = message.response('\n'.join(film_lines), parse_mode='html', reply_markup=markup).send()
+        body = 'Estos horarios son del día {} para el cine {}. Cambia de día usando los botones.'.format(
+            date.strftime('%x'), cinema['name']
+        )
+        body += set_hidden_data('cinema_id', cinema['_id'])
+        body += set_hidden_data('message_id', resp.message_id)
         # TODO: incluir como info oculta el cine y los mensajes a eliminar
-        msg = message.response(body, reply_markup=markup)
+        msg = message.response(body, reply_markup=markup, parse_mode='html')
         inline = msg.inline_keyboard(2)
         for day_key, name in DAYS:
             inline.add_button(name, callback=self.cinema_billboard_day, callback_kwargs={'d': day_key})
@@ -339,4 +353,9 @@ class SearchPlugin(BillboardBase):
 
     @button_target
     def cinema_billboard_day(self, query, d):
-        pass
+        message = Message.from_telebot_message(self.main, query.message)
+        message_id = get_hidden_data(message, 'message_id')
+        self.bot.delete_message(message.chat.id, message.message_id)
+        self.bot.delete_message(message.chat.id, message_id)
+        cinema = self.locations.find_one({'_id': ObjectId(get_hidden_data(message, 'cinema_id'))})
+        self.cinema_billboard(message, cinema, d)
