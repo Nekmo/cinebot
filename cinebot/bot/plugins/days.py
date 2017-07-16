@@ -116,6 +116,31 @@ class BillboardBase(PluginBase):
     def locations(self):
         return self.db['locations']
 
+    def get_collage(self, film_groups):
+        columns = math.ceil(len(film_groups) ** (1 / 2))
+        rows = round(len(film_groups) ** (1 / 2) + 0.00001)  # No redondea 0.5 a 1. Por eso añado 0.00001
+        ims = Image.new('RGB', (DEFAULT_WIDTH * columns, DEFAULT_HEIGHT * rows), '#ffffff')
+        for i, film_group in enumerate(film_groups):
+            film = film_group[0] if isinstance(film_group, list) else film_group
+            image = film.get_image()
+            if image is None:
+                continue
+            im = Image.open(image)
+            im.thumbnail((DEFAULT_WIDTH, DEFAULT_HEIGHT))
+            ims.paste(im, ((i % columns) * DEFAULT_WIDTH, (i // columns) * DEFAULT_HEIGHT))
+        name = tempfile.NamedTemporaryFile().name
+        ims.save(name, "JPEG")
+        return name
+
+    def send_collage(self, film_groups, message):
+        if not film_groups:
+            return
+        # TODO: debería en el futuro intentar cachearlo X tiempo
+        image = self.get_collage(film_groups)
+        msg = self.bot.send_photo(message.chat.id, open(image, 'rb'))
+        os.remove(image)
+        return msg
+
 
 class DaysPlugin(BillboardBase):
 
@@ -179,29 +204,6 @@ class DaysPlugin(BillboardBase):
         inline = msg.inline_keyboard()
         self.billboard_markup(films_groups, inline)
         msg.send()
-
-    def get_collage(self, film_groups):
-        columns = math.ceil(len(film_groups) ** (1 / 2))
-        rows = round(len(film_groups) ** (1 / 2) + 0.00001)  # No redondea 0.5 a 1. Por eso añado 0.00001
-        ims = Image.new('RGB', (DEFAULT_WIDTH * columns, DEFAULT_HEIGHT * rows), '#ffffff')
-        for i, film_group in enumerate(film_groups):
-            film = film_group[0]
-            image = film.get_image()
-            if image is None:
-                continue
-            im = Image.open(image)
-            im.thumbnail((DEFAULT_WIDTH, DEFAULT_HEIGHT))
-            ims.paste(im, ((i % columns) * DEFAULT_WIDTH, (i // columns) * DEFAULT_HEIGHT))
-        name = tempfile.NamedTemporaryFile().name
-        ims.save(name, "JPEG")
-        return name
-
-    def send_collage(self, film_groups, message):
-        # TODO: debería en el futuro intentar cachearlo X tiempo
-        image = self.get_collage(film_groups)
-        msg = self.bot.send_photo(message.chat.id, open(image, 'rb'))
-        os.remove(image)
-        return msg
 
     def billboard_markup(self, films_groups, inline, **extra_data):
         for film_group in films_groups:
@@ -338,13 +340,16 @@ class SearchPlugin(BillboardBase):
             film_lines.append('<b>{name}</b>\n{times}'.format(**escape_items(
                 name=film.name, times=', '.join([str(time) for time in film.get_times()])
             )))
-        resp = message.response('\n'.join(film_lines), parse_mode='html', reply_markup=markup).send()
+        poster = self.send_collage(films, message)
+        resp = message.response('\n'.join(film_lines) if film_lines else 'No hay sesiones disponibles.',
+                                parse_mode='html', reply_markup=markup).send()
         body = 'Estos horarios son del día {} para el cine {}. Cambia de día usando los botones.'.format(
             date.strftime('%x'), cinema['name']
         )
+        if poster:
+            body += set_hidden_data('poster_id', poster.message_id)
         body += set_hidden_data('cinema_id', cinema['_id'])
         body += set_hidden_data('message_id', resp.message_id)
-        # TODO: incluir como info oculta el cine y los mensajes a eliminar
         msg = message.response(body, reply_markup=markup, parse_mode='html')
         inline = msg.inline_keyboard(2)
         for day_key, name in DAYS:
@@ -355,6 +360,9 @@ class SearchPlugin(BillboardBase):
     def cinema_billboard_day(self, query, d):
         message = Message.from_telebot_message(self.main, query.message)
         message_id = get_hidden_data(message, 'message_id')
+        poster_id = get_hidden_data(message, 'poster_id')
+        if poster_id:
+            self.bot.delete_message(message.chat.id, poster_id)
         self.bot.delete_message(message.chat.id, message.message_id)
         self.bot.delete_message(message.chat.id, message_id)
         cinema = self.locations.find_one({'_id': ObjectId(get_hidden_data(message, 'cinema_id'))})

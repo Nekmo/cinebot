@@ -39,7 +39,7 @@ class YelmoLocation(LocationBase):
         data = req.json()['d']
         cinema = [cinema for cinema in data['Cinemas'] if cinema['Key'] == self.id['cinema']][0]
         movies = self._get_movies_by_date(cinema, date)
-        return [dict(movie, name=movie['Title'], film_options=movie) for movie in movies]
+        return [dict(movie, name=movie['Title'], film_options=movie) for movie in (movies or [])]
 
     def _get_movies_by_date(self, cinema, date):
         for cinemaDate in cinema['Dates']:
