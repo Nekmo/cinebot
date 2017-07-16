@@ -264,16 +264,30 @@ class SearchPlugin(BillboardBase):
         return self.db['locations']
 
     def search(self, message):
-        cinemas = self.search_cinemas.find({'user_id': message.chat.id})
-        if not cinemas.count():
+        user_cinemas = self.search_cinemas.find({'user_id': message.chat.id})
+        if not user_cinemas.count():
             self.search_by_name(message)
         msg = message.response('Antes de buscar, aquí tienes los últimos cines que consultaste.')
+        markup = msg.inline_keyboard()
+        markup.add_button('* Iniciar búsqueda *', callback=self.search_by_name_selected)
+        for i, user_cinema in enumerate(user_cinemas):
+            cinema = self.locations.find_one({'_id': user_cinema['cinema_id']})
+            markup.add_button(cinema['name'], callback=self.cinema_selected, callback_kwargs={'c': i})
+        msg.send()
         # TODO:
+
+    @button_target
+    def cinema_selected(self, query, c):
+        pass
 
     def search_by_name(self, message):
         msg = message.response('Escribe el nombre del cine del que obtener su cartelera')
         msg.force_reply(self.search_results)
         msg.send()
+
+    @button_target
+    def search_by_name_selected(self, query):
+        self.search_by_name(Message.from_telebot_message(self.main, query.message))
 
     def search_results(self, message):
         msg = message.response('Estos son los resultados que se han encontrado')
