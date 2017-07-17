@@ -35,4 +35,22 @@ Comando         Descripción
 ``/about``      Acerca de este bot y su desarrollador
 ==============  ===========================================================
 
+Con la primera ejecución del bot, se te pedirá añadir cines favoritos. Puedes gestionarlos más adelante con
+``/cinemas``. Cuando un cine está en favoritos, puedes usar los comandos ``/today``, ``/tomorrow``, ``/next2days``
+y ``/next3days`` para ver su cartelera de forma rápida. Si añades varios cines favoritos, su cartelera se unificará.
+En futuras versiones además, periódicamente recibirás un informe de los cambios en cartelera de los cines definidos
+como favoritos.
 
+El comando ``/search`` te permite buscar un cine sin añadirlo a favoritos, y ver su cartelera. Además, podrás ver
+el histórico de los últimos cines de los que viste cartelera por este método, sin necesidad de volver a escribir
+su nombre.
+
+Cines soportados
+================
+En estos momentos este bot sólo está orientado al mercado español, con soporte para los cines:
+- Yelmo
+- Cinesur
+
+Este proyecto está abierto a PR para recibir soporte a nuevos cines. También se busca en un futuro añadir soporte
+internacional para incluir cines de otros países, además de la traducción del propio bot, que a día de hoy sólo
+se encuentra en español.
