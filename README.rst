@@ -12,13 +12,12 @@ Si deseas ver la cartelera de un cine sin necesidad de añadirlo a tus favoritos
 se mostrará el historial de los últimos cines buscados.
 
 ================================  ================================  ================================
-.. image:: https://goo.gl/mSRzoV  .. image:: https://goo.gl/aToLzA  .. image:: https://goo.gl/hSdwFr
-.. image:: https://goo.gl/USidXz  .. image:: https://goo.gl/NrVn3P  .. image:: https://goo.gl/gbgH6z
+.. image:: https://goo.gl/KD3rVN  .. image:: https://goo.gl/N4JM92  .. image:: https://goo.gl/vQAz9h
+.. image:: https://goo.gl/uSY5oi  .. image:: https://goo.gl/kD2mp9  .. image:: https://goo.gl/Nqd83Y
 ================================  ================================  ================================
 
-.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/today.png
-.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/film.png
-.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/favorites.png
-.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/history.png
-.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/search.png
-.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/results.png
+
+
+
+
+
