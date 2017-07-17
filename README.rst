@@ -15,3 +15,10 @@ se mostrará el historial de los últimos cines buscados.
 .. image:: https://goo.gl/mSRzoV  .. image:: https://goo.gl/aToLzA  .. image:: https://goo.gl/hSdwFr
 .. image:: https://goo.gl/USidXz  .. image:: https://goo.gl/NrVn3P  .. image:: https://goo.gl/gbgH6z
 ================================  ================================  ================================
+
+.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/today.png
+.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/film.png
+.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/favorites.png
+.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/history.png
+.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/search.png
+.. image:: https://raw.githubusercontent.com/Nekmo/cinebot/master/imgs/results.png
