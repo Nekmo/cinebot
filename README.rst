@@ -18,6 +18,8 @@ se mostrará el historial de los últimos cines buscados.
 
 Aunque puedes montar tu propia versión de CineBot, hay una versión oficial para probar: ``@horascinebot``.
 
+**Bot oficial:** ==> ``@horascinebot`` <==
+
 
 Comandos
 ========
@@ -54,3 +56,29 @@ En estos momentos este bot sólo está orientado al mercado español, con soport
 Este proyecto está abierto a PR para recibir soporte a nuevos cines. También se busca en un futuro añadir soporte
 internacional para incluir cines de otros países, además de la traducción del propio bot, que a día de hoy sólo
 se encuentra en español.
+
+
+Montar bot propio
+=================
+Se requiere de los siguientes elementos instalados:
+
+- Python 3.5+
+- Mongodb
+- Virtualenvs
+- Instalar desde requirements
+
+
+El archivo de configuración, el cual debe estar en la raíz del proyecto, sería (```config.json```)::
+
+    {
+      "api_token": "<apitoken>",
+      "bot_alias": "<aliasbot>",
+      "db_url": "mongodb://localhost:27017",
+      "db_name": "cinebot"
+    }
+
+
+Para ejecutarlo::
+
+    ./scripts/cinebot
+
