@@ -213,7 +213,7 @@ class ServiceBase(object):
 
     def db_find(self, collection, query=None):
         if not self.db:
-            return
+            return ()
         return self.db[collection].find(query or {})
 
     def db_save_many(self, collection, datas):

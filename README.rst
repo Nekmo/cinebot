@@ -50,6 +50,7 @@ su nombre.
 Cines soportados
 ================
 En estos momentos este bot sólo está orientado al mercado español, con soporte para los cines:
+
 - Yelmo
 - Cinesur
 
